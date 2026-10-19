@@ -194,6 +194,46 @@
     render();
   }
 
+  let audio = null;
+  // iOS ではタップの処理の中でしか音を鳴らし始められない
+  function ensureAudio() {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state !== 'running') audio.resume();
+  }
+
+  // ボタンを押したときの「カチッ」：高めのノイズの粒と、重さを出す低い音
+  let clickNoise = null;
+  function clickSound() {
+    const t = audio.currentTime;
+    if (!clickNoise) {
+      const len = Math.floor(audio.sampleRate * 0.03);
+      clickNoise = audio.createBuffer(1, len, audio.sampleRate);
+      const data = clickNoise.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 6;
+    }
+    const noise = audio.createBufferSource();
+    noise.buffer = clickNoise;
+    const band = audio.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 3200;
+    band.Q.value = 1.4;
+    const noiseGain = audio.createGain();
+    noiseGain.gain.value = 1.0;
+    noise.connect(band).connect(noiseGain).connect(audio.destination);
+    noise.start(t);
+
+    const body = audio.createOscillator();
+    body.type = 'sine';
+    body.frequency.setValueAtTime(190, t);
+    body.frequency.exponentialRampToValueAtTime(70, t + 0.05);
+    const bodyGain = audio.createGain();
+    bodyGain.gain.setValueAtTime(0.35, t);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    body.connect(bodyGain).connect(audio.destination);
+    body.start(t);
+    body.stop(t + 0.07);
+  }
+
   timeButton.addEventListener('click', editMinutes);
   minutesInput.addEventListener('input', () => {
     minutesInput.value = minutesInput.value.replace(/\D/g, '').slice(0, 2);
@@ -207,7 +247,22 @@
   });
   minutesInput.addEventListener('blur', finishEdit);
 
-  startButton.addEventListener('click', start);
+  // 「カチッ」は押し込んだ瞬間に鳴らす。まだ音が使えない最初の1回だけは、離したとき（click）に鳴らす
+  let clickedAt = -Infinity;
+  startButton.addEventListener('pointerdown', () => {
+    if (audio && audio.state === 'running') {
+      clickSound();
+      clickedAt = performance.now();
+    }
+  });
+  startButton.addEventListener('click', () => {
+    ensureAudio();
+    if (performance.now() - clickedAt > 1000) clickSound();
+    clickedAt = -Infinity;
+    start();
+  });
+  // ほかの場所を触ったときにも音を使える状態にしておく
+  document.addEventListener('click', ensureAudio);
 
   // 開き直したときは、動いているタイマーの続きを表示する
   document.addEventListener('visibilitychange', () => {
