@@ -19,6 +19,8 @@
     color-scheme: light dark;
     --bg: #f4f2ee;
     --fg: #141414;
+    --track: rgba(20, 20, 20, 0.08);
+    --muted: #5c5955;
     --accent: #ff4a24;
     --accent-deep: #c22d0d;
   }
@@ -26,6 +28,8 @@
     :root {
       --bg: #0d0d0d;
       --fg: #f4f2ee;
+      --track: rgba(244, 242, 238, 0.1);
+      --muted: #a8a59f;
       --accent-deep: #9e240a;
     }
   }
@@ -49,16 +53,50 @@
     touch-action: manipulation;
   }
 
+  #modes {
+    display: flex;
+    gap: 4px;
+    margin-top: 16px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--track);
+  }
+  .mode {
+    min-width: 100px;
+    height: 44px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .mode[aria-pressed="true"] {
+    background: var(--fg);
+    color: var(--bg);
+  }
+  /* タイマーが動いている間は切り替えられない */
+  .mode:disabled { opacity: 0.35; cursor: default; }
+
   #count {
     flex: 1;
     display: flex;
     align-items: center;
-    font-size: min(30vw, 36vh);
-    font-size: min(30vw, 36dvh);
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.04em;
+  }
+  body[data-mode="sec"] #count {
+    font-size: min(100vw, 52vh);
+    font-size: min(100vw, 52dvh);
+  }
+  body[data-mode="min"] #count {
+    font-size: min(30vw, 36vh);
+    font-size: min(30vw, 36dvh);
   }
   #time-button {
     padding: 0;
@@ -69,8 +107,8 @@
     letter-spacing: inherit;
     line-height: inherit;
   }
-  body:not(.running) #time-button { cursor: pointer; }
-  /* 数字をタップすると、分の部分が入力欄になる */
+  body[data-mode="min"]:not(.running) #time-button { cursor: pointer; }
+  /* 分数モードで数字をタップすると、分の部分が入力欄になる */
   #edit { display: none; align-items: baseline; }
   body.editing #time-button { display: none; }
   body.editing #edit { display: flex; }
@@ -131,7 +169,7 @@
     25% { translate: -4px 0; }
     75% { translate: 4px 0; }
   }
-  #time-button:focus-visible, #start:focus-visible {
+  .mode:focus-visible, #time-button:focus-visible, #start:focus-visible {
     outline: 3px solid var(--fg);
     outline-offset: 2px;
   }
@@ -139,6 +177,10 @@
 </style>
 </head>
 <body>
+<div id="modes">
+  <button id="mode-sec" class="mode" type="button" aria-pressed="false">5 sec</button>
+  <button id="mode-min" class="mode" type="button" aria-pressed="false">25 min</button>
+</div>
 <div id="count">
   <button id="time-button" type="button"><span id="time" role="timer"></span></button>
   <span id="edit">
@@ -150,17 +192,20 @@
   <svg id="hold-ring" aria-hidden="true"><path class="track"/><path class="fill"/></svg>
 </button>
 <script>
+  const SEC_MODE_SECONDS = 5;
   const DEFAULT_MINUTES = 25;
   const MAX_MINUTES = 99;
   const STORE_KEY = 'just-start';
 
   const time = document.getElementById('time');
   const timeButton = document.getElementById('time-button');
+  const secButton = document.getElementById('mode-sec');
+  const minButton = document.getElementById('mode-min');
   const minutesInput = document.getElementById('minutes');
   const startButton = document.getElementById('start');
 
   // end は動いているタイマーの終了時刻（0なら未開始）。閉じても続きから表示できるよう保存する
-  const state = { minutes: DEFAULT_MINUTES, end: 0 };
+  const state = { mode: 'min', minutes: DEFAULT_MINUTES, end: 0 };
   try { Object.assign(state, JSON.parse(localStorage.getItem(STORE_KEY))); } catch {}
   if (!validMinutes(state.minutes)) state.minutes = DEFAULT_MINUTES;
   function save() {
@@ -171,14 +216,15 @@
   }
 
   function durationMs() {
-    return state.minutes * 60 * 1000;
+    return state.mode === 'sec' ? SEC_MODE_SECONDS * 1000 : state.minutes * 60 * 1000;
   }
 
   function format(s) {
+    if (state.mode === 'sec') return String(s);
     return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
   }
 
-  // 0を見せたあと、この時間で開始時の表示（25:00 など）に戻して、次も押すだけで始められるようにする
+  // 0を見せたあと、この時間で開始時の表示（5 や 25:00）に戻して、次も押すだけで始められるようにする
   const HOLD_ZERO_MS = 1000;
 
   let timer = 0;
@@ -201,23 +247,45 @@
     return state.end > Date.now();
   }
 
-  // 動いている間は、ボタンを押し込んだままにし、分数は変えられないようにする
+  // 動いている間は、ボタンを押し込んだままにし、モードと分数は変えられないようにする
   let running = false;
   function showRunning(on) {
     if (on && !running) layoutRing();
     running = on;
     document.body.classList.toggle('running', on);
-    timeButton.tabIndex = on ? -1 : 0;
+    secButton.disabled = on;
+    minButton.disabled = on;
+    timeButton.tabIndex = state.mode === 'min' && !on ? 0 : -1;
     startButton.setAttribute('aria-label', on ? 'Hold to stop' : 'Start');
+  }
+
+  function showMode() {
+    document.body.dataset.mode = state.mode;
+    secButton.setAttribute('aria-pressed', state.mode === 'sec');
+    minButton.setAttribute('aria-pressed', state.mode === 'min');
+    minButton.textContent = state.minutes + ' min';
+    render();
+  }
+
+  function setMode(mode) {
+    if (state.mode === mode) return;
+    stopBeeps();
+    state.mode = mode;
+    state.end = 0;
+    save();
+    showMode();
   }
 
   function start() {
     state.end = Date.now() + durationMs();
     save();
+    if (state.mode === 'sec') countdownBeeps();
+    else stopBeeps();
     render();
   }
 
   function stop() {
+    stopBeeps();
     state.end = 0;
     save();
     render();
@@ -226,7 +294,7 @@
   // 分数の入力。Enter か欄の外をタップで確定、Esc で取り消し
   let cancelEdit = false;
   function editMinutes() {
-    if (isRunning()) return;
+    if (state.mode !== 'min' || isRunning()) return;
     minutesInput.value = state.minutes;
     document.body.classList.add('editing');
     minutesInput.focus();
@@ -241,10 +309,11 @@
       save();
     }
     cancelEdit = false;
-    render();
+    showMode();
   }
 
   let audio = null;
+  let voices = [];
   // iOS ではタップの処理の中でしか音を鳴らし始められない
   function ensureAudio() {
     audio = audio || new (window.AudioContext || window.webkitAudioContext)();
@@ -284,6 +353,40 @@
     body.stop(t + 0.07);
   }
 
+  // マリオカートのスタートのように、3〜1で低い音、0で高い音。
+  // 5と4は鳴らさない（押したときの「カチッ」と重ならないように）
+  const BEEP_FROM = 3;
+  function beep(at, freq, length) {
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.12, at + 0.01);
+    gain.gain.setValueAtTime(0.12, at + length * 0.6);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + length);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(at);
+    osc.stop(at + length);
+    return osc;
+  }
+  function countdownBeeps() {
+    stopBeeps();
+    ensureAudio();
+    const t0 = audio.currentTime + 0.03;
+    for (let s = BEEP_FROM; s >= 1; s--) voices.push(beep(t0 + SEC_MODE_SECONDS - s, 440, 0.18));
+    voices.push(beep(t0 + SEC_MODE_SECONDS, 880, 0.8));
+  }
+  function stopBeeps() {
+    for (const osc of voices) {
+      try { osc.stop(); } catch {}
+    }
+    voices = [];
+  }
+
+  secButton.addEventListener('click', () => setMode('sec'));
+  // 分数モードを選んでいるときに押すと、分数の入力を開く
+  minButton.addEventListener('click', () => (state.mode === 'min' ? editMinutes() : setMode('min')));
   timeButton.addEventListener('click', editMinutes);
   minutesInput.addEventListener('input', () => {
     minutesInput.value = minutesInput.value.replace(/\D/g, '').slice(0, 2);
@@ -398,7 +501,7 @@
   // iOS Safari で :active を効かせる
   document.addEventListener('touchstart', () => {}, { passive: true });
 
-  render();
+  showMode();
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
