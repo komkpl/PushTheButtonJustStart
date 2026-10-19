@@ -237,11 +237,11 @@
     return (state.mode === 'sec' ? SEC_MODE_SECONDS : state.seconds) * 1000;
   }
 
-  // 切り替えボタンの表示。ちょうどの分なら「25 min」、秒があれば「12:30」
+  // 切り替えボタンの表示。「5 sec」と揃えて「25 min」「10 sec」「1 min 30 sec」のように書く
   function durationLabel() {
     const m = Math.floor(state.seconds / 60);
     const s = state.seconds % 60;
-    return s ? m + ':' + String(s).padStart(2, '0') : m + ' min';
+    return [m && m + ' min', s && s + ' sec'].filter(Boolean).join(' ');
   }
 
   function format(s) {
