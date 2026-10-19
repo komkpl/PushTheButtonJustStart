@@ -62,7 +62,7 @@
     letter-spacing: inherit;
     line-height: inherit;
   }
-  #time-button { cursor: pointer; }
+  body:not(.running) #time-button { cursor: pointer; }
   /* 数字をタップすると、分の部分が入力欄になる */
   #edit { display: none; align-items: baseline; }
   body.editing #time-button { display: none; }
@@ -87,6 +87,7 @@
   }
 
   #start {
+    position: relative;
     --width: min(72vw, 320px);
     --height: min(calc(var(--width) * 0.42), 18vh);
     --depth: calc(var(--height) * 0.12);
@@ -101,9 +102,27 @@
     cursor: pointer;
     transition: transform 60ms ease-out, box-shadow 60ms ease-out;
   }
-  #start:active {
+  /* 動いている間は押し込まれたまま（長押しで戻して止める） */
+  #start:active, body.running #start {
     transform: translateY(var(--depth));
     box-shadow: 0 0 0 var(--accent-deep);
+  }
+  body.running #start { filter: brightness(0.85); }
+  /* 動いている間はボタンの外周に枠を出し、長押ししている間だけ枠がぐるっと伸びていく */
+  #hold-ring {
+    position: absolute;
+    display: none;
+    overflow: visible;
+    pointer-events: none;
+  }
+  body.running #hold-ring { display: block; }
+  #hold-ring path { fill: none; stroke: var(--fg); stroke-width: 5px; }
+  #hold-ring .track { opacity: 0.15; }
+  /* 動いている間に軽く押したときは、ロックされていることを小さく揺れて伝える */
+  #start.nudge { animation: nudge 240ms ease-in-out; }
+  @keyframes nudge {
+    25% { translate: -4px 0; }
+    75% { translate: 4px 0; }
   }
   #time-button:focus-visible, #start:focus-visible {
     outline: 3px solid var(--fg);
@@ -120,7 +139,9 @@
            enterkeyhint="done" autocomplete="off" aria-label="Minutes"><span aria-hidden="true">:00</span>
   </span>
 </div>
-<button id="start" type="button" aria-label="Start"></button>
+<button id="start" type="button" aria-label="Start">
+  <svg id="hold-ring" aria-hidden="true"><path class="track"/><path class="fill"/></svg>
+</button>
 <script>
   const DEFAULT_MINUTES = 25;
   const MAX_MINUTES = 99;
@@ -163,9 +184,24 @@
     const ms = state.end ? Math.max(0, state.end - Date.now()) : durationMs();
     const s = Math.ceil(ms / 1000);
     time.textContent = format(s);
+    showRunning(Boolean(state.end) && ms > 0);
     if (!state.end) return;
     const next = ms > 0 ? ms - (s - 1) * 1000 : state.end + HOLD_ZERO_MS - Date.now();
     timer = setTimeout(render, next + 5);
+  }
+
+  function isRunning() {
+    return state.end > Date.now();
+  }
+
+  // 動いている間は、ボタンを押し込んだままにし、分数は変えられないようにする
+  let running = false;
+  function showRunning(on) {
+    if (on && !running) layoutRing();
+    running = on;
+    document.body.classList.toggle('running', on);
+    timeButton.tabIndex = on ? -1 : 0;
+    startButton.setAttribute('aria-label', on ? 'Hold to stop' : 'Start');
   }
 
   function start() {
@@ -174,9 +210,16 @@
     render();
   }
 
+  function stop() {
+    state.end = 0;
+    save();
+    render();
+  }
+
   // 分数の入力。Enter か欄の外をタップで確定、Esc で取り消し
   let cancelEdit = false;
   function editMinutes() {
+    if (isRunning()) return;
     minutesInput.value = state.minutes;
     document.body.classList.add('editing');
     minutesInput.focus();
@@ -247,20 +290,96 @@
   });
   minutesInput.addEventListener('blur', finishEdit);
 
-  // 「カチッ」は押し込んだ瞬間に鳴らす。まだ音が使えない最初の1回だけは、離したとき（click）に鳴らす
+  // 長押しの進み具合を、ボタンの外周の枠で見せる。枠は角丸に沿って上の真ん中から時計回りに伸びる
+  const HOLD_TO_STOP_MS = 1000;
+  const RING_GAP = 6;
+  const RING_WIDTH = 5;
+  const ring = document.getElementById('hold-ring');
+  const ringTrack = ring.querySelector('.track');
+  const ringFill = ring.querySelector('.fill');
+  let ringLength = 0;
+  function layoutRing() {
+    const w = startButton.offsetWidth;
+    const h = startButton.offsetHeight;
+    const r = parseFloat(getComputedStyle(startButton).borderTopLeftRadius) || 0;
+    const pad = RING_GAP + RING_WIDTH;
+    ring.setAttribute('width', w + pad * 2);
+    ring.setAttribute('height', h + pad * 2);
+    ring.style.left = ring.style.top = -pad + 'px';
+    const o = RING_GAP + RING_WIDTH / 2;
+    const x = pad - o;
+    const y = pad - o;
+    const W = w + o * 2;
+    const H = h + o * 2;
+    const R = r + o;
+    const d = `M${x + W / 2} ${y}H${x + W - R}A${R} ${R} 0 0 1 ${x + W} ${y + R}V${y + H - R}`
+      + `A${R} ${R} 0 0 1 ${x + W - R} ${y + H}H${x + R}A${R} ${R} 0 0 1 ${x} ${y + H - R}V${y + R}`
+      + `A${R} ${R} 0 0 1 ${x + R} ${y}Z`;
+    ringTrack.setAttribute('d', d);
+    ringFill.setAttribute('d', d);
+    ringLength = 2 * (W - 2 * R) + 2 * (H - 2 * R) + 2 * Math.PI * R;
+    ringFill.style.strokeDasharray = ringLength;
+    ringFill.style.transition = 'none';
+    ringFill.style.strokeDashoffset = ringLength;
+  }
+  function fillRing(full) {
+    ringFill.style.transition = full
+      ? `stroke-dashoffset ${HOLD_TO_STOP_MS}ms linear`
+      : 'stroke-dashoffset 200ms ease-out';
+    ringFill.style.strokeDashoffset = full ? 0 : ringLength;
+  }
+  window.addEventListener('resize', () => { if (running) layoutRing(); });
+
+  // 「カチッ」は押し込んだ瞬間に鳴らす。まだ音が使えない最初の1回だけは、離したとき（click）に鳴らす。
+  // 動いている間は軽く押しても止まらず、枠が一周するまで長押しすると止まる
   let clickedAt = -Infinity;
-  startButton.addEventListener('pointerdown', () => {
-    if (audio && audio.state === 'running') {
+  let holdTimer = 0;
+  let holdStopped = false;
+  function pressDown() {
+    holdStopped = false;
+    if (isRunning()) {
+      fillRing(true);
+      holdTimer = setTimeout(() => {
+        holdStopped = true;
+        ensureAudio();
+        clickSound();
+        stop();
+      }, HOLD_TO_STOP_MS);
+    } else if (audio && audio.state === 'running') {
       clickSound();
       clickedAt = performance.now();
     }
+  }
+  function pressUp() {
+    clearTimeout(holdTimer);
+    if (running) fillRing(false);
+  }
+  startButton.addEventListener('pointerdown', pressDown);
+  for (const type of ['pointerup', 'pointerleave', 'pointercancel']) startButton.addEventListener(type, pressUp);
+  startButton.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.repeat) {
+      e.preventDefault();
+      return;
+    }
+    pressDown();
   });
+  startButton.addEventListener('keyup', pressUp);
+  startButton.addEventListener('contextmenu', (e) => e.preventDefault());
   startButton.addEventListener('click', () => {
+    if (holdStopped) return;
+    if (isRunning()) {
+      startButton.classList.remove('nudge');
+      void startButton.offsetWidth;
+      startButton.classList.add('nudge');
+      return;
+    }
     ensureAudio();
     if (performance.now() - clickedAt > 1000) clickSound();
     clickedAt = -Infinity;
     start();
   });
+  startButton.addEventListener('animationend', () => startButton.classList.remove('nudge'));
   // ほかの場所を触ったときにも音を使える状態にしておく
   document.addEventListener('click', ensureAudio);
 
