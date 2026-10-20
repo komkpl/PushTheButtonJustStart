@@ -217,7 +217,7 @@
 
   // seconds は分数モードの長さ（秒）。end は動いているタイマーの終了時刻（0なら未開始）。
   // 閉じても続きから表示できるよう保存する
-  const state = { mode: 'min', seconds: DEFAULT_SECONDS, end: 0 };
+  const state = { mode: 'sec', seconds: DEFAULT_SECONDS, end: 0 };
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {};
     // 分だけを保存していた版からの移行
@@ -226,6 +226,11 @@
     Object.assign(state, saved);
   } catch {}
   if (!validSeconds(state.seconds)) state.seconds = DEFAULT_SECONDS;
+  // 開いたときは5秒モードを見せる。分数のタイマーが動いている間だけは、その続きを見せる
+  if (state.mode === 'min' && !(state.end > Date.now())) {
+    state.mode = 'sec';
+    state.end = 0;
+  }
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
   }
