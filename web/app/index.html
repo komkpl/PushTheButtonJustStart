@@ -267,14 +267,16 @@
     const ms = state.end ? Math.max(0, state.end - Date.now()) : durationMs();
     const s = Math.ceil(ms / 1000);
     time.textContent = format(s);
-    showRunning(Boolean(state.end) && ms > 0);
+    showRunning(Boolean(state.end));
     if (!state.end) return;
     const next = ms > 0 ? ms - (s - 1) * 1000 : state.end + HOLD_ZERO_MS - Date.now();
     timer = setTimeout(render, next + 5);
   }
 
+  // 0を見せている間も含めて、開始時の表示に戻るまでを「動いている」とみなす。
+  // ボタンもその瞬間に戻る（0になった時点ではまだ押し込まれたまま）
   function isRunning() {
-    return state.end > Date.now();
+    return Boolean(state.end) && Date.now() < state.end + HOLD_ZERO_MS;
   }
 
   // 動いている間は、ボタンを押し込んだままにし、モードと分数は変えられないようにする
