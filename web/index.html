@@ -1,562 +1,272 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Just Start</title>
-<meta name="description" content="Push the button. Just start.">
+<title>Just Start — 押すだけで動き出せるタイマー</title>
+<meta name="description" content="押すとカウントダウンが始まるだけのタイマー。「やらなきゃ」と思ってから動くまでの「まだいいか」を消します。無料・登録なし。">
 <meta name="theme-color" content="#f4f2ee" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Just Start">
+<meta property="og:description" content="Push the button. Just start. 押すとカウントダウンが始まるだけのタイマー。">
+<meta property="og:image" content="https://komkpl.github.io/PushTheButtonJustStart/icon-512.png">
+<meta name="twitter:card" content="summary">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Just Start">
-<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>
+  // ホーム画面から起動されたとき（以前トップにあったアプリのアイコンを含む）は、すぐアプリへ移る
+  if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) location.replace('app/');
+</script>
 <style>
   :root {
     color-scheme: light dark;
     --bg: #f4f2ee;
     --fg: #141414;
-    --track: rgba(20, 20, 20, 0.08);
     --muted: #5c5955;
+    --surface: rgba(20, 20, 20, 0.05);
+    --line: rgba(20, 20, 20, 0.12);
     --accent: #ff4a24;
     --accent-deep: #c22d0d;
+    --on-accent: #141414;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0d0d0d;
       --fg: #f4f2ee;
-      --track: rgba(244, 242, 238, 0.1);
       --muted: #a8a59f;
+      --surface: rgba(244, 242, 238, 0.06);
+      --line: rgba(244, 242, 238, 0.14);
       --accent-deep: #9e240a;
     }
   }
-  html, body { height: 100%; margin: 0; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    box-sizing: border-box;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+  }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: max(48px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left));
+  }
+  a { color: inherit; }
+
+  /* 一番上：キャッチコピーと入口 */
+  .hero { text-align: center; }
+  .name {
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(40px, 11vw, 68px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+  /* 中央そろえの文は、語の途中で折り返さないよう <wbr> の位置だけで改行する */
+  .lead { margin: 20px auto 0; max-width: 30em; color: var(--muted); word-break: keep-all; overflow-wrap: anywhere; }
+  .cta {
+    --depth: 6px;
+    display: inline-block;
+    margin: 32px 0 calc(var(--depth) + 4px);
+    padding: 16px 40px;
+    border-radius: 16px;
+    background: var(--accent);
+    box-shadow: 0 var(--depth) 0 var(--accent-deep);
+    color: var(--on-accent);
+    font-size: 20px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform 60ms ease-out, box-shadow 60ms ease-out;
+  }
+  .cta:active { transform: translateY(var(--depth)); box-shadow: 0 0 0 var(--accent-deep); }
+  .cta:focus-visible { outline: 3px solid var(--fg); outline-offset: calc(var(--depth) + 4px); }
+  .note { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+
+  /* アプリの画面の見本（数字が5から0まで減っていく） */
+  .phone {
+    width: 220px;
+    height: 400px;
+    margin: 48px auto 0;
+    padding: 16px 16px 28px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    border: 8px solid var(--fg);
+    border-radius: 36px;
     background: var(--bg);
-    color: var(--fg);
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Roboto, Arial, sans-serif;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    touch-action: manipulation;
   }
-
-  #modes {
+  .phone-modes {
     display: flex;
-    gap: 4px;
-    margin-top: 16px;
-    padding: 4px;
+    gap: 2px;
+    padding: 3px;
     border-radius: 999px;
-    background: var(--track);
+    background: var(--surface);
+    font-size: 11px;
+    font-weight: 700;
   }
-  .mode {
-    min-width: 100px;
-    height: 44px;
-    padding: 0 18px;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--muted);
-    font: inherit;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .mode[aria-pressed="true"] {
-    background: var(--fg);
-    color: var(--bg);
-  }
-  /* タイマーが動いている間は切り替えられない */
-  .mode:disabled { opacity: 0.35; cursor: default; }
-
-  #count {
+  .phone-modes span { padding: 4px 10px; border-radius: 999px; color: var(--muted); }
+  .phone-modes .on { background: var(--fg); color: var(--bg); }
+  .phone-count {
     flex: 1;
     display: flex;
     align-items: center;
+    font-size: 132px;
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.04em;
   }
-  body[data-mode="sec"] #count {
-    font-size: min(100vw, 52vh);
-    font-size: min(100vw, 52dvh);
-  }
-  body[data-mode="min"] #count {
-    font-size: min(30vw, 36vh);
-    font-size: min(30vw, 36dvh);
-  }
-  #time-button {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-    font: inherit;
-    letter-spacing: inherit;
-    line-height: inherit;
-  }
-  body[data-mode="min"]:not(.running) #time-button { cursor: pointer; }
-  /* 分数モードで数字をタップすると、時間の入力になる。入力欄は見えないように重ね、打った数字は表示側に出す */
-  #edit { display: none; position: relative; }
-  body.editing #time-button { display: none; }
-  body.editing #edit { display: block; }
-  #edit-time { border-bottom: 0.05em solid var(--accent); }
-  /* 開いた直後は全体が選ばれている（最初に打った数字から入れ直し） */
-  body.edit-fresh #edit-time { background: rgba(255, 74, 36, 0.22); }
-  #edit-time::after {
-    content: "";
-    display: inline-block;
-    width: 0.05em;
-    height: 0.75em;
-    margin-left: 0.04em;
+  .phone-button {
+    width: 140px;
+    height: 56px;
+    border-radius: 13px;
     background: var(--accent);
-    animation: blink 1s steps(1) infinite;
-  }
-  body.edit-fresh #edit-time::after { visibility: hidden; }
-  @keyframes blink { 50% { opacity: 0; } }
-  #duration {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    border: 0;
-    opacity: 0;
-    font-size: 16px;
-    caret-color: transparent;
-    -webkit-user-select: text;
-    user-select: text;
+    box-shadow: 0 7px 0 var(--accent-deep);
   }
 
-  #start {
+  section { margin-top: 72px; }
+  h2 { margin: 0 0 20px; font-size: 24px; font-weight: 800; letter-spacing: -0.01em; }
+
+  .steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+  .steps li {
     position: relative;
-    --width: min(72vw, 320px);
-    --height: min(calc(var(--width) * 0.42), 18vh);
-    --depth: calc(var(--height) * 0.12);
-    width: var(--width);
-    height: var(--height);
-    margin-bottom: calc(max(8vh, 40px) + var(--depth));
-    padding: 0;
-    border: 0;
-    border-radius: calc(var(--height) * 0.22);
-    background: var(--accent);
-    box-shadow: 0 var(--depth) 0 var(--accent-deep);
-    cursor: pointer;
-    transition: transform 60ms ease-out, box-shadow 60ms ease-out;
+    padding: 0 0 20px 56px;
+    counter-increment: step;
   }
-  /* 動いている間は押し込まれたまま（長押しで戻して止める） */
-  #start:active, body.running #start {
-    transform: translateY(var(--depth));
-    box-shadow: 0 0 0 var(--accent-deep);
-  }
-  body.running #start { filter: brightness(0.85); }
-  /* 動いている間はボタンの外周に枠を出し、長押ししている間だけ枠がぐるっと伸びていく */
-  #hold-ring {
+  .steps li::before {
+    content: counter(step);
     position: absolute;
-    display: none;
-    overflow: visible;
-    pointer-events: none;
+    left: 0;
+    top: -4px;
+    color: var(--accent);
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
   }
-  body.running #hold-ring { display: block; }
-  #hold-ring path { fill: none; stroke: var(--fg); stroke-width: 5px; }
-  #hold-ring .track { opacity: 0.15; }
-  /* 動いている間に軽く押したときは、ロックされていることを小さく揺れて伝える */
-  #start.nudge { animation: nudge 240ms ease-in-out; }
-  @keyframes nudge {
-    25% { translate: -4px 0; }
-    75% { translate: 4px 0; }
+  .steps b, .points b { display: block; font-size: 18px; }
+  .steps span, .points span { color: var(--muted); }
+
+  .modes { display: grid; gap: 12px; }
+  @media (min-width: 560px) { .modes { grid-template-columns: 1fr 1fr; } }
+  .mode {
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
   }
-  .mode:focus-visible, #time-button:focus-visible, #start:focus-visible {
-    outline: 3px solid var(--fg);
-    outline-offset: 2px;
+  .mode-label {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 4px 14px;
+    border-radius: 999px;
+    background: var(--fg);
+    color: var(--bg);
+    font-size: 14px;
+    font-weight: 700;
   }
-  #start:focus-visible { outline-offset: calc(var(--depth) + 6px); }
+  .mode p { margin: 0; color: var(--muted); }
+
+  .points { margin: 0; padding: 0; list-style: none; display: grid; gap: 20px; }
+
+  .install { margin: 0 0 8px; padding-left: 1.2em; }
+  .install li { margin-bottom: 4px; }
+  .install-cta { text-align: center; }
+
+  footer {
+    margin-top: 72px;
+    padding: 24px 0 max(32px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
-<div id="modes">
-  <button id="mode-sec" class="mode" type="button" aria-pressed="false">5 sec</button>
-  <button id="mode-min" class="mode" type="button" aria-pressed="false">25 min</button>
-</div>
-<div id="count">
-  <button id="time-button" type="button"><span id="time" role="timer"></span></button>
-  <span id="edit">
-    <span id="edit-time" aria-hidden="true"></span>
-    <input id="duration" type="text" inputmode="numeric" pattern="[0-9]*"
-           enterkeyhint="done" autocomplete="off" aria-label="Duration, minutes and seconds">
-  </span>
-</div>
-<button id="start" type="button" aria-label="Start">
-  <svg id="hold-ring" aria-hidden="true"><path class="track"/><path class="fill"/></svg>
-</button>
+<main>
+  <header class="hero">
+    <p class="name">Just Start</p>
+    <h1>Push the button.<br>Just start.</h1>
+    <p class="lead">押すと<wbr>カウントダウンが<wbr>始まるだけの<wbr>タイマー。<wbr>「やらなきゃ」と<wbr>思ってから<wbr>実際に<wbr>動くまでの<wbr>「まだいいか」を<wbr>消します。</p>
+    <a class="cta" href="app/">今すぐ使う</a>
+    <p class="note">無料・登録なし。ブラウザでそのまま動きます</p>
+    <div class="phone" aria-hidden="true">
+      <div class="phone-modes"><span class="on">5 sec</span><span>25 min</span></div>
+      <div class="phone-count" id="demo">5</div>
+      <div class="phone-button"></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>使い方</h2>
+    <ol class="steps">
+      <li><b>ダラダラしている</b><span>お風呂、ご飯、勉強。やることはわかっているのに、なかなか動けない。</span></li>
+      <li><b>ボタンを押す</b><span>「カチッ」と鳴ってカウントダウンが始まる。いつ動くかを、タイマーが代わりに決めてくれる。</span></li>
+      <li><b>考える前に体が動く</b><span>数字が減っていくのを見るだけで、立ち上がれる。</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>2つのモード</h2>
+    <div class="modes">
+      <div class="mode">
+        <span class="mode-label">5 sec</span>
+        <p>5秒のカウントダウン。「3・2・1・0」のスタート音を合図に、一気に動き出す。</p>
+      </div>
+      <div class="mode">
+        <span class="mode-label">25 min</span>
+        <p>数字をタップして、分と秒を入力するタイマー。初期値はポモドーロの25分。閉じても動き続け、戻ってきたら続きが見える。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>こだわり</h2>
+    <ul class="points">
+      <li><b>うっかり止まらない</b><span>動いている間はボタンが押し込まれたまま。止めるときは1秒長押しします。</span></li>
+      <li><b>0になっても通知もログもない</b><span>動き出せたら、それで目的は果たせています。</span></li>
+      <li><b>オフラインでも動く</b><span>一度開けば、電波がなくてもすぐ起動します。</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>ホーム画面に置く</h2>
+    <p>アプリを開いてから追加すると、アイコンをタップするだけでタイマーが出ます。</p>
+    <ul class="install">
+      <li>iPhone（Safari）：共有ボタン →「ホーム画面に追加」</li>
+      <li>Android（Chrome）：メニュー →「ホーム画面に追加」</li>
+    </ul>
+    <p class="install-cta"><a class="cta" href="app/">アプリを開く</a></p>
+  </section>
+
+  <footer>
+    Just Start · <a href="https://github.com/komkpl/PushTheButtonJustStart">GitHub</a>
+  </footer>
+</main>
 <script>
-  const SEC_MODE_SECONDS = 5;
-  const DEFAULT_SECONDS = 25 * 60;
-  const MAX_SECONDS = 99 * 60 + 59;
-  const STORE_KEY = 'just-start';
-
-  const time = document.getElementById('time');
-  const timeButton = document.getElementById('time-button');
-  const secButton = document.getElementById('mode-sec');
-  const minButton = document.getElementById('mode-min');
-  const editTime = document.getElementById('edit-time');
-  const durationInput = document.getElementById('duration');
-  const startButton = document.getElementById('start');
-
-  // seconds は分数モードの長さ（秒）。end は動いているタイマーの終了時刻（0なら未開始）。
-  // 閉じても続きから表示できるよう保存する
-  const state = { mode: 'sec', seconds: DEFAULT_SECONDS, end: 0 };
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {};
-    // 分だけを保存していた版からの移行
-    if (saved.seconds === undefined && saved.minutes !== undefined) saved.seconds = saved.minutes * 60;
-    delete saved.minutes;
-    Object.assign(state, saved);
-  } catch {}
-  if (!validSeconds(state.seconds)) state.seconds = DEFAULT_SECONDS;
-  // 開いたときは5秒モードを見せる。分数のタイマーが動いている間だけは、その続きを見せる
-  if (state.mode === 'min' && !(state.end > Date.now())) {
-    state.mode = 'sec';
-    state.end = 0;
+  // 見本の数字を、アプリと同じく 5→0 と減らし、0を1秒見せてからまた 5 に戻す
+  const demo = document.getElementById('demo');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let n = 5;
+    setInterval(() => {
+      n = n === 0 ? 5 : n - 1;
+      demo.textContent = n;
+    }, 1000);
   }
-  function save() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
-  }
-  function validSeconds(s) {
-    return Number.isInteger(s) && s >= 1 && s <= MAX_SECONDS;
-  }
-
-  function durationMs() {
-    return (state.mode === 'sec' ? SEC_MODE_SECONDS : state.seconds) * 1000;
-  }
-
-  // 切り替えボタンの表示。「5 sec」と揃えて「25 min」「10 sec」「1 min 30 sec」のように書く
-  function durationLabel() {
-    const m = Math.floor(state.seconds / 60);
-    const s = state.seconds % 60;
-    return [m && m + ' min', s && s + ' sec'].filter(Boolean).join(' ');
-  }
-
-  function format(s) {
-    if (state.mode === 'sec') return String(s);
-    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-  }
-
-  // 0を見せたあと、この時間で開始時の表示（5 や 25:00）に戻して、次も押すだけで始められるようにする
-  const HOLD_ZERO_MS = 1000;
-
-  let timer = 0;
-  function render() {
-    clearTimeout(timer);
-    if (state.end && Date.now() >= state.end + HOLD_ZERO_MS) {
-      state.end = 0;
-      save();
-    }
-    const ms = state.end ? Math.max(0, state.end - Date.now()) : durationMs();
-    const s = Math.ceil(ms / 1000);
-    time.textContent = format(s);
-    showRunning(Boolean(state.end) && ms > 0);
-    if (!state.end) return;
-    const next = ms > 0 ? ms - (s - 1) * 1000 : state.end + HOLD_ZERO_MS - Date.now();
-    timer = setTimeout(render, next + 5);
-  }
-
-  function isRunning() {
-    return state.end > Date.now();
-  }
-
-  // 動いている間は、ボタンを押し込んだままにし、モードと分数は変えられないようにする
-  let running = false;
-  function showRunning(on) {
-    if (on && !running) layoutRing();
-    running = on;
-    document.body.classList.toggle('running', on);
-    secButton.disabled = on;
-    minButton.disabled = on;
-    timeButton.tabIndex = state.mode === 'min' && !on ? 0 : -1;
-    startButton.setAttribute('aria-label', on ? 'Hold to stop' : 'Start');
-  }
-
-  function showMode() {
-    document.body.dataset.mode = state.mode;
-    secButton.setAttribute('aria-pressed', state.mode === 'sec');
-    minButton.setAttribute('aria-pressed', state.mode === 'min');
-    minButton.textContent = durationLabel();
-    render();
-  }
-
-  function setMode(mode) {
-    if (state.mode === mode) return;
-    stopBeeps();
-    state.mode = mode;
-    state.end = 0;
-    save();
-    showMode();
-  }
-
-  function start() {
-    state.end = Date.now() + durationMs();
-    save();
-    if (state.mode === 'sec') countdownBeeps();
-    else stopBeeps();
-    render();
-  }
-
-  function stop() {
-    stopBeeps();
-    state.end = 0;
-    save();
-    render();
-  }
-
-  // 時間の入力。一般的なタイマーと同じく、数字は右から入っていく（2→5→0→0 で 25:00、4→5 で 00:45）。
-  // 開いた直後は全体が選ばれていて、最初に打った数字から入れ直しになる。
-  // Enter か欄の外をタップで確定、Esc で取り消し
-  let digits = '';
-  let fresh = false;
-  let cancelEdit = false;
-  function showDigits() {
-    editTime.textContent = digits.slice(0, 2) + ':' + digits.slice(2);
-    document.body.classList.toggle('edit-fresh', fresh);
-  }
-  function editDuration() {
-    if (state.mode !== 'min' || isRunning()) return;
-    digits = format(state.seconds).replace(':', '');
-    fresh = true;
-    durationInput.value = digits;
-    document.body.classList.add('editing');
-    showDigits();
-    durationInput.focus();
-    durationInput.select();
-  }
-  function finishEdit() {
-    document.body.classList.remove('editing', 'edit-fresh');
-    // 秒が60以上なら繰り上げる（01:90 → 02:30）。99:59 を超える分は 99:59 にする
-    const s = Math.min(Number(digits.slice(0, 2)) * 60 + Number(digits.slice(2)), MAX_SECONDS);
-    if (!cancelEdit && validSeconds(s) && s !== state.seconds) {
-      state.seconds = s;
-      state.end = 0;
-      save();
-    }
-    cancelEdit = false;
-    showMode();
-  }
-
-  let audio = null;
-  let voices = [];
-  // iOS ではタップの処理の中でしか音を鳴らし始められない
-  function ensureAudio() {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    if (audio.state !== 'running') audio.resume();
-  }
-
-  // ボタンを押したときの「カチッ」：高めのノイズの粒と、重さを出す低い音
-  let clickNoise = null;
-  function clickSound() {
-    const t = audio.currentTime;
-    if (!clickNoise) {
-      const len = Math.floor(audio.sampleRate * 0.03);
-      clickNoise = audio.createBuffer(1, len, audio.sampleRate);
-      const data = clickNoise.getChannelData(0);
-      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 6;
-    }
-    const noise = audio.createBufferSource();
-    noise.buffer = clickNoise;
-    const band = audio.createBiquadFilter();
-    band.type = 'bandpass';
-    band.frequency.value = 3200;
-    band.Q.value = 1.4;
-    const noiseGain = audio.createGain();
-    noiseGain.gain.value = 1.0;
-    noise.connect(band).connect(noiseGain).connect(audio.destination);
-    noise.start(t);
-
-    const body = audio.createOscillator();
-    body.type = 'sine';
-    body.frequency.setValueAtTime(190, t);
-    body.frequency.exponentialRampToValueAtTime(70, t + 0.05);
-    const bodyGain = audio.createGain();
-    bodyGain.gain.setValueAtTime(0.35, t);
-    bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
-    body.connect(bodyGain).connect(audio.destination);
-    body.start(t);
-    body.stop(t + 0.07);
-  }
-
-  // マリオカートのスタートのように、3〜1で低い音、0で高い音。
-  // 5と4は鳴らさない（押したときの「カチッ」と重ならないように）
-  const BEEP_FROM = 3;
-  function beep(at, freq, length) {
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.type = 'square';
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(0.12, at + 0.01);
-    gain.gain.setValueAtTime(0.12, at + length * 0.6);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + length);
-    osc.connect(gain).connect(audio.destination);
-    osc.start(at);
-    osc.stop(at + length);
-    return osc;
-  }
-  function countdownBeeps() {
-    stopBeeps();
-    ensureAudio();
-    const t0 = audio.currentTime + 0.03;
-    for (let s = BEEP_FROM; s >= 1; s--) voices.push(beep(t0 + SEC_MODE_SECONDS - s, 440, 0.18));
-    voices.push(beep(t0 + SEC_MODE_SECONDS, 880, 0.8));
-  }
-  function stopBeeps() {
-    for (const osc of voices) {
-      try { osc.stop(); } catch {}
-    }
-    voices = [];
-  }
-
-  secButton.addEventListener('click', () => setMode('sec'));
-  // 分数モードを選んでいるときに押すと、分数の入力を開く
-  minButton.addEventListener('click', () => (state.mode === 'min' ? editDuration() : setMode('min')));
-  timeButton.addEventListener('click', editDuration);
-  // 入力欄の値は常に4桁の digits にしておき、カーソルは末尾に置く。
-  // 末尾に1文字足されれば左へずらし、末尾が消されれば右へずらすだけで、右から入る入力になる
-  durationInput.addEventListener('input', () => {
-    digits = durationInput.value.replace(/\D/g, '').slice(-4).padStart(4, '0');
-    fresh = false;
-    durationInput.value = digits;
-    durationInput.setSelectionRange(4, 4);
-    showDigits();
-  });
-  durationInput.addEventListener('click', () => {
-    if (fresh) durationInput.select();
-    else durationInput.setSelectionRange(4, 4);
-  });
-  durationInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') durationInput.blur();
-    if (e.key === 'Escape') {
-      cancelEdit = true;
-      durationInput.blur();
-    }
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) e.preventDefault();
-  });
-  durationInput.addEventListener('blur', finishEdit);
-
-  // 長押しの進み具合を、ボタンの外周の枠で見せる。枠は角丸に沿って上の真ん中から時計回りに伸びる
-  const HOLD_TO_STOP_MS = 1000;
-  const RING_GAP = 6;
-  const RING_WIDTH = 5;
-  const ring = document.getElementById('hold-ring');
-  const ringTrack = ring.querySelector('.track');
-  const ringFill = ring.querySelector('.fill');
-  let ringLength = 0;
-  function layoutRing() {
-    const w = startButton.offsetWidth;
-    const h = startButton.offsetHeight;
-    const r = parseFloat(getComputedStyle(startButton).borderTopLeftRadius) || 0;
-    const pad = RING_GAP + RING_WIDTH;
-    ring.setAttribute('width', w + pad * 2);
-    ring.setAttribute('height', h + pad * 2);
-    ring.style.left = ring.style.top = -pad + 'px';
-    const o = RING_GAP + RING_WIDTH / 2;
-    const x = pad - o;
-    const y = pad - o;
-    const W = w + o * 2;
-    const H = h + o * 2;
-    const R = r + o;
-    const d = `M${x + W / 2} ${y}H${x + W - R}A${R} ${R} 0 0 1 ${x + W} ${y + R}V${y + H - R}`
-      + `A${R} ${R} 0 0 1 ${x + W - R} ${y + H}H${x + R}A${R} ${R} 0 0 1 ${x} ${y + H - R}V${y + R}`
-      + `A${R} ${R} 0 0 1 ${x + R} ${y}Z`;
-    ringTrack.setAttribute('d', d);
-    ringFill.setAttribute('d', d);
-    ringLength = 2 * (W - 2 * R) + 2 * (H - 2 * R) + 2 * Math.PI * R;
-    ringFill.style.strokeDasharray = ringLength;
-    ringFill.style.transition = 'none';
-    ringFill.style.strokeDashoffset = ringLength;
-  }
-  function fillRing(full) {
-    ringFill.style.transition = full
-      ? `stroke-dashoffset ${HOLD_TO_STOP_MS}ms linear`
-      : 'stroke-dashoffset 200ms ease-out';
-    ringFill.style.strokeDashoffset = full ? 0 : ringLength;
-  }
-  window.addEventListener('resize', () => { if (running) layoutRing(); });
-
-  // 「カチッ」は押し込んだ瞬間に鳴らす。まだ音が使えない最初の1回だけは、離したとき（click）に鳴らす。
-  // 動いている間は軽く押しても止まらず、枠が一周するまで長押しすると止まる
-  let clickedAt = -Infinity;
-  let holdTimer = 0;
-  let holdStopped = false;
-  function pressDown() {
-    holdStopped = false;
-    if (isRunning()) {
-      fillRing(true);
-      holdTimer = setTimeout(() => {
-        holdStopped = true;
-        ensureAudio();
-        clickSound();
-        stop();
-      }, HOLD_TO_STOP_MS);
-    } else if (audio && audio.state === 'running') {
-      clickSound();
-      clickedAt = performance.now();
-    }
-  }
-  function pressUp() {
-    clearTimeout(holdTimer);
-    if (running) fillRing(false);
-  }
-  startButton.addEventListener('pointerdown', pressDown);
-  for (const type of ['pointerup', 'pointerleave', 'pointercancel']) startButton.addEventListener(type, pressUp);
-  startButton.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    if (e.repeat) {
-      e.preventDefault();
-      return;
-    }
-    pressDown();
-  });
-  startButton.addEventListener('keyup', pressUp);
-  startButton.addEventListener('contextmenu', (e) => e.preventDefault());
-  startButton.addEventListener('click', () => {
-    if (holdStopped) return;
-    if (isRunning()) {
-      startButton.classList.remove('nudge');
-      void startButton.offsetWidth;
-      startButton.classList.add('nudge');
-      return;
-    }
-    ensureAudio();
-    if (performance.now() - clickedAt > 1000) clickSound();
-    clickedAt = -Infinity;
-    start();
-  });
-  startButton.addEventListener('animationend', () => startButton.classList.remove('nudge'));
-  // ほかの場所を触ったときにも音を使える状態にしておく
-  document.addEventListener('click', ensureAudio);
-
-  // 開き直したときは、動いているタイマーの続きを表示する
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') render();
-  });
-  window.addEventListener('pageshow', (e) => { if (e.persisted) render(); });
-  // iOS Safari で :active を効かせる
-  document.addEventListener('touchstart', () => {}, { passive: true });
-
-  showMode();
-
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 </body>
 </html>
