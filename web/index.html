@@ -186,6 +186,18 @@
   .install li { margin-bottom: 4px; }
   .install-cta { text-align: center; }
 
+  /* 応援のリンクは、主役の「今すぐ使う」より目立たせない */
+  .support-cta { margin: 20px 0 0; text-align: center; }
+  .support-link {
+    display: inline-block;
+    padding: 12px 28px;
+    border: 2px solid var(--fg);
+    border-radius: 16px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .support-link:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
   footer {
     margin-top: 72px;
     padding: 24px 0 max(32px, env(safe-area-inset-bottom));
@@ -251,6 +263,12 @@
       <li>Android（Chrome）：メニュー →「ホーム画面に追加」</li>
     </ul>
     <p class="install-cta"><a class="cta" href="app/">アプリを開く</a></p>
+  </section>
+
+  <section>
+    <h2>応援する</h2>
+    <p>気に入ったら、コーヒー1杯分の応援をもらえるとうれしいです。いただいた応援は、新しいタイマースキンの開発や、アプリとしてストアに出すための費用に使わせてもらいます。</p>
+    <p class="support-cta"><a class="support-link" href="https://buymeacoffee.com/komkpl">Buy Me a Coffee で応援する</a></p>
   </section>
 
   <footer>

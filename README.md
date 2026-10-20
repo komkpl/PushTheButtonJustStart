@@ -6,6 +6,8 @@
 
 公開URL：https://komkpl.github.io/PushTheButtonJustStart/
 
+気に入ったら [Buy Me a Coffee](https://buymeacoffee.com/komkpl) で応援してもらえるとうれしいです。
+
 - `web/index.html`：紹介ページ（ランディングページ）。何のアプリかの説明と、アプリへの入口
 - `web/app/`：アプリ本体。スマホのホーム画面に置いて使う
 
