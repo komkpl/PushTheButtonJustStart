@@ -14,10 +14,14 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
+// 古い版のキャッシュを消す。komkpl.github.io は同じアカウントのほかのサイトとも共有なので、
+// このアプリのもの（just-start-）だけを対象にする
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(
+        keys.filter((k) => k.startsWith('just-start-') && k !== CACHE).map((k) => caches.delete(k)),
+      ))
       .then(() => self.clients.claim()),
   );
 });
